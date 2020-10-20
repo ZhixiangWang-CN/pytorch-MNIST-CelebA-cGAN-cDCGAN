@@ -10,6 +10,8 @@ import torch.optim as optim
 from torchvision import datasets, transforms
 from torch.autograd import Variable
 
+
+
 # G(z)
 class generator(nn.Module):
     # initializers
@@ -47,8 +49,8 @@ class discriminator(nn.Module):
     # initializers
     def __init__(self, d=128):
         super(discriminator, self).__init__()
-        self.conv1_1 = nn.Conv2d(1, d/2, 4, 2, 1)
-        self.conv1_2 = nn.Conv2d(10, d/2, 4, 2, 1)
+        self.conv1_1 = nn.Conv2d(1, d//2, 4, 2, 1)
+        self.conv1_2 = nn.Conv2d(10, d//2, 4, 2, 1)
         self.conv2 = nn.Conv2d(d, d*2, 4, 2, 1)
         self.conv2_bn = nn.BatchNorm2d(d*2)
         self.conv3 = nn.Conv2d(d*2, d*4, 4, 2, 1)
@@ -89,7 +91,7 @@ fixed_z_ = fixed_z_.view(-1, 100, 1, 1)
 fixed_y_label_ = torch.zeros(100, 10)
 fixed_y_label_.scatter_(1, fixed_y_.type(torch.LongTensor), 1)
 fixed_y_label_ = fixed_y_label_.view(-1, 10, 1, 1)
-fixed_z_, fixed_y_label_ = Variable(fixed_z_.cuda(), volatile=True), Variable(fixed_y_label_.cuda(), volatile=True)
+fixed_z_, fixed_y_label_ = Variable(fixed_z_.cpu(), volatile=True), Variable(fixed_y_label_.cpu(), volatile=True)
 def show_result(num_epoch, show = False, save = False, path = 'result.png'):
 
     G.eval()
@@ -151,7 +153,8 @@ img_size = 32
 transform = transforms.Compose([
         transforms.Scale(img_size),
         transforms.ToTensor(),
-        transforms.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5))
+        # transforms.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5))
+        transforms.Normalize([0.5], [0.5])
 ])
 train_loader = torch.utils.data.DataLoader(
     datasets.MNIST('data', train=True, download=True, transform=transform),
@@ -162,8 +165,8 @@ G = generator(128)
 D = discriminator(128)
 G.weight_init(mean=0.0, std=0.02)
 D.weight_init(mean=0.0, std=0.02)
-G.cuda()
-D.cuda()
+G.cpu()
+D.cpu()
 
 # Binary Cross Entropy loss
 BCE_loss = nn.BCELoss()
@@ -213,7 +216,7 @@ for epoch in range(train_epoch):
     epoch_start_time = time.time()
     y_real_ = torch.ones(batch_size)
     y_fake_ = torch.zeros(batch_size)
-    y_real_, y_fake_ = Variable(y_real_.cuda()), Variable(y_fake_.cuda())
+    y_real_, y_fake_ = Variable(y_real_.cpu()), Variable(y_fake_.cpu())
     for x_, y_ in train_loader:
         # train discriminator D
         D.zero_grad()
@@ -223,10 +226,10 @@ for epoch in range(train_epoch):
         if mini_batch != batch_size:
             y_real_ = torch.ones(mini_batch)
             y_fake_ = torch.zeros(mini_batch)
-            y_real_, y_fake_ = Variable(y_real_.cuda()), Variable(y_fake_.cuda())
+            y_real_, y_fake_ = Variable(y_real_.cpu()), Variable(y_fake_.cpu())
 
         y_fill_ = fill[y_]
-        x_, y_fill_ = Variable(x_.cuda()), Variable(y_fill_.cuda())
+        x_, y_fill_ = Variable(x_.cpu()), Variable(y_fill_.cpu())
 
         D_result = D(x_, y_fill_).squeeze()
         D_real_loss = BCE_loss(D_result, y_real_)
@@ -235,7 +238,7 @@ for epoch in range(train_epoch):
         y_ = (torch.rand(mini_batch, 1) * 10).type(torch.LongTensor).squeeze()
         y_label_ = onehot[y_]
         y_fill_ = fill[y_]
-        z_, y_label_, y_fill_ = Variable(z_.cuda()), Variable(y_label_.cuda()), Variable(y_fill_.cuda())
+        z_, y_label_, y_fill_ = Variable(z_.cpu()), Variable(y_label_.cpu()), Variable(y_fill_.cpu())
 
         G_result = G(z_, y_label_)
         D_result = D(G_result, y_fill_).squeeze()
@@ -248,7 +251,7 @@ for epoch in range(train_epoch):
         D_train_loss.backward()
         D_optimizer.step()
 
-        D_losses.append(D_train_loss.data[0])
+        D_losses.append(D_train_loss.item())
 
         # train generator G
         G.zero_grad()
@@ -257,7 +260,7 @@ for epoch in range(train_epoch):
         y_ = (torch.rand(mini_batch, 1) * 10).type(torch.LongTensor).squeeze()
         y_label_ = onehot[y_]
         y_fill_ = fill[y_]
-        z_, y_label_, y_fill_ = Variable(z_.cuda()), Variable(y_label_.cuda()), Variable(y_fill_.cuda())
+        z_, y_label_, y_fill_ = Variable(z_.cpu()), Variable(y_label_.cpu()), Variable(y_fill_.cpu())
 
         G_result = G(z_, y_label_)
         D_result = D(G_result, y_fill_).squeeze()
@@ -267,7 +270,7 @@ for epoch in range(train_epoch):
         G_train_loss.backward()
         G_optimizer.step()
 
-        G_losses.append(G_train_loss.data[0])
+        G_losses.append(G_train_loss.item())
 
     epoch_end_time = time.time()
     per_epoch_ptime = epoch_end_time - epoch_start_time
