@@ -9,7 +9,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torchvision import datasets, transforms
 from torch.autograd import Variable
-
+from loader import GetLoader
 
 
 # G(z)
@@ -149,16 +149,21 @@ lr = 0.0002
 train_epoch = 20
 
 # data_loader
-img_size = 32
-transform = transforms.Compose([
-        transforms.Scale(img_size),
+img_size =32
+transforms = transforms.Compose([
+        transforms.Resize((img_size,img_size)),
+        transforms.Grayscale(1),
         transforms.ToTensor(),
         # transforms.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5))
         transforms.Normalize([0.5], [0.5])
 ])
-train_loader = torch.utils.data.DataLoader(
-    datasets.MNIST('data', train=True, download=True, transform=transform),
-    batch_size=batch_size, shuffle=True)
+path = './data/lung/1.jpg'
+# 通过GetLoader将数据进行加载，返回Dataset对象，包含data和labels
+torch_data = GetLoader(path,transform=transforms)
+train_loader = torch.utils.data.DataLoader(torch_data, batch_size=batch_size)
+# train_loader = torch.utils.data.DataLoader(
+#     datasets.MNIST('data', train=True, download=True, transform=transform),
+#     batch_size=batch_size, shuffle=True)
 # train_loader = torch.utils.data.DataLoader('data/lung',batch_size=batch_size)
 # network
 G = generator(2)
@@ -220,7 +225,9 @@ for epoch in range(train_epoch):
     for x_, y_ in train_loader:
         # train discriminator D
         D.zero_grad()
-
+        print(y_)
+        # y_ = y_.unsqueeze(0)  # 添加一个0维度
+        # print(y_)
         mini_batch = x_.size()[0]
 
         if mini_batch != batch_size:
@@ -230,16 +237,19 @@ for epoch in range(train_epoch):
 
         y_fill_ = fill[y_]
         x_, y_fill_ = Variable(x_.cpu()), Variable(y_fill_.cpu())
-
+        print(y_fill_.size())
         D_result = D(x_, y_fill_).squeeze()
         D_real_loss = BCE_loss(D_result, y_real_)
 
         z_ = torch.randn((mini_batch, 100)).view(-1, 100, 1, 1)
         y_ = (torch.rand(mini_batch, 1) * 10).type(torch.LongTensor).squeeze()
         y_label_ = onehot[y_]
+        y_label_ = y_label_.unsqueeze(0)
         y_fill_ = fill[y_]
+        y_fill_ = y_fill_.unsqueeze(0)
         z_, y_label_, y_fill_ = Variable(z_.cpu()), Variable(y_label_.cpu()), Variable(y_fill_.cpu())
-        print(y_fill_.size())
+
+
         G_result = G(z_, y_label_)
         D_result = D(G_result, y_fill_).squeeze()
 
