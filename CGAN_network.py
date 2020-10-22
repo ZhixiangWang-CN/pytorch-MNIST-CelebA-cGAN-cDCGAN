@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from torch.autograd import Variable
 from loader import GetLoader
+from loader_txt import MyDataset
 import pickle
 import copy
 
@@ -125,11 +126,17 @@ if __name__ == "__main__":
         # transforms.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5))
         transforms.Normalize([0.5], [0.5])
     ])
-    path = './data/lung/1.jpg'
+    # path = './data/lung/1.jpg'
     # 通过GetLoader将数据进行加载，返回Dataset对象，包含data和labels
-    torch_data = GetLoader(path, transform=transforms)
-    trainloader = torch.utils.data.DataLoader(torch_data, batch_size=1)
-    testloader = torch.utils.data.DataLoader(torch_data, batch_size=1)
+    train_data = MyDataset(txt='train.txt', transform=transforms)
+    test_data = MyDataset(txt='test.txt', transform=transforms)
+
+    # train_data 和test_data包含多有的训练与测试数据，调用DataLoader批量加载
+    trainloader = DataLoader(dataset=train_data, batch_size=1, shuffle=True)
+    testloader = DataLoader(dataset=test_data, batch_size=1)
+    # torch_data = GetLoader(path, transform=transforms)
+    # trainloader = torch.utils.data.DataLoader(torch_data, batch_size=1)
+    # testloader = torch.utils.data.DataLoader(torch_data, batch_size=1)
     # trainset, testset, trainloader, testloader = loadMNIST(num_img)  # data
     D = D.cpu()
     G = G.cpu()
@@ -148,7 +155,7 @@ if __name__ == "__main__":
     gepoch = 1
     for i in range(epoch):
         for (img, label) in trainloader:
-            # print("label",label)
+            print("label",label)
             labels_onehot = np.zeros((num_img, 10))
             labels_onehot[np.arange(num_img), label.numpy()] = 1
             #    img=img.view(num_img,-1)

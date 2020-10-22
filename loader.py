@@ -23,7 +23,7 @@ class GetLoader(torch.utils.data.Dataset):
 
 if __name__ == '__main__':
 
-    path = './data/lung/1.jpg'
+    path = './data/lung/'
     # 通过GetLoader将数据进行加载，返回Dataset对象，包含data和labels
     torch_data = GetLoader(path)
     from torch.utils.data import DataLoader
