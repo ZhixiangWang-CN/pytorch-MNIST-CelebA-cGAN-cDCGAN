@@ -10,6 +10,7 @@ import torch.optim as optim
 from torchvision import datasets, transforms
 from torch.autograd import Variable
 from loader import GetLoader
+import tsensor
 
 
 # G(z)

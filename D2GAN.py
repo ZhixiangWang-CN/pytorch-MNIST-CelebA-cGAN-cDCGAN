@@ -81,6 +81,35 @@ class discriminator(nn.Module):
         x = self.fc(x)
         return x
 
+class discriminator_nodule(nn.Module):
+    def __init__(self):
+        super(discriminator_nodule, self).__init__()
+        self.dis = nn.Sequential(
+            nn.Conv2d(1, 32, 5, stride=1, padding=2),
+            nn.LeakyReLU(0.2, True),
+            nn.MaxPool2d((2, 2)),
+
+            nn.Conv2d(32, 64, 5, stride=1, padding=2),
+            nn.LeakyReLU(0.2, True),
+            nn.MaxPool2d((2, 2)),
+
+            nn.Conv2d(64, 10, 5, stride=1, padding=2),
+            nn.LeakyReLU(0.2, True),
+            nn.MaxPool2d((2, 2))
+        )
+        self.fc = nn.Sequential(
+            nn.Linear(1*90, 1024),
+            nn.LeakyReLU(0.2, True),
+            nn.Linear(1024, 10),
+            nn.Sigmoid()
+        )
+
+    def forward(self, x):
+        x = self.dis(x)
+        x = x.view(x.size(0), -1)
+        x = self.fc(x)
+        return x
+
 
 class generator(nn.Module):
     def __init__(self, input_size, num_feature):
@@ -116,6 +145,7 @@ if __name__ == "__main__":
     num_img = 1
     z_dimension = 110
     D = discriminator()
+    D_nodule= discriminator_nodule()
     G = generator(z_dimension, 3136)  # 1*56*56
     # data_loader
     img_size = 28
@@ -139,9 +169,11 @@ if __name__ == "__main__":
     # testloader = torch.utils.data.DataLoader(torch_data, batch_size=1)
     # trainset, testset, trainloader, testloader = loadMNIST(num_img)  # data
     D = D.cpu()
+    D_nodule = D_nodule.cpu()
     G = G.cpu()
     d_optimizer = optim.Adam(D.parameters(), lr=0.0003)
     g_optimizer = optim.Adam(G.parameters(), lr=0.0003)
+    d_nodule_optimizer = optim.Adam(D_nodule.parameters(), lr=0.0003)
     '''
     交替训练的方式训练网络
     先训练判别器网络D再训练生成器网络G
@@ -155,34 +187,52 @@ if __name__ == "__main__":
     gepoch = 1
     for i in range(epoch):
         for (img, label) in trainloader:
-            # print("label",label)
-            labels_onehot = np.zeros((num_img, 10))
-            labels_onehot[np.arange(num_img), label.numpy()] = 1
-            #    img=img.view(num_img,-1)
-            #    img=np.concatenate((img.numpy(),labels_onehot))
-            #    img=torch.from_numpy(img)
-            img = Variable(img).cpu()
-            real_label = Variable(torch.from_numpy(labels_onehot).float()).cpu()  # 真实label为1
-            fake_label = Variable(torch.zeros(num_img, 10)).cpu()  # 假的label为0
+            if i%2 ==0:
+                # print("label",label)
+                labels_onehot = np.zeros((num_img, 10))
+                labels_onehot[np.arange(num_img), label.numpy()] = 1
+                #    img=img.view(num_img,-1)
+                #    img=np.concatenate((img.numpy(),labels_onehot))
+                #    img=torch.from_numpy(img)
+                img = Variable(img).cpu()
+                real_label = Variable(torch.from_numpy(labels_onehot).float()).cpu()  # 真实label为1
+                fake_label = Variable(torch.zeros(num_img, 10)).cpu()  # 假的label为0
 
-            # compute loss of real_img
-            real_out = D(img)  # 真实图片送入判别器D输出0~1
-            d_loss_real = criterion(real_out, real_label)  # 得到loss
-            real_scores = real_out  # 真实图片放入判别器输出越接近1越好
+                # compute loss of real_img
+                real_out = D(img)  # 真实图片送入判别器D输出0~1
+                d_loss_real = criterion(real_out, real_label)  # 得到loss
+                real_scores = real_out  # 真实图片放入判别器输出越接近1越好
 
-            # compute loss of fake_img
-            z = Variable(torch.randn(num_img, z_dimension)).cpu()  # 随机生成向量
-            fake_img = G(z)  # 将向量放入生成网络G生成一张图片
-            fake_out = D(fake_img)  # 判别器判断假的图片
-            d_loss_fake = criterion(fake_out, fake_label)  # 假的图片的loss
-            fake_scores = fake_out  # 假的图片放入判别器输出越接近0越好
+                # compute loss of fake_img
+                z = Variable(torch.randn(num_img, z_dimension)).cpu()  # 随机生成向量
+                fake_img = G(z)  # 将向量放入生成网络G生成一张图片
+                fake_out = D(fake_img)  # 判别器判断假的图片
+                d_loss_fake = criterion(fake_out, fake_label)  # 假的图片的loss
+                fake_scores = fake_out  # 假的图片放入判别器输出越接近0越好
 
-            # D bp and optimize
-            d_loss = d_loss_real + d_loss_fake
-            d_optimizer.zero_grad()  # 判别器D的梯度归零
-            d_loss.backward()  # 反向传播
-            d_optimizer.step()  # 更新判别器D参数
+                # D bp and optimize
+                d_loss = d_loss_real + d_loss_fake
+                d_optimizer.zero_grad()  # 判别器D的梯度归零
+                d_loss.backward()  # 反向传播
+                d_optimizer.step()  # 更新判别器D参数
+            else:
+                # compute loss of real_img
+                real_out = D_nodule(img)  # 真实图片送入判别器D输出0~1
+                d_loss_real = criterion(real_out, real_label)  # 得到loss
+                real_scores = real_out  # 真实图片放入判别器输出越接近1越好
 
+                # compute loss of fake_img
+                z = Variable(torch.randn(num_img, z_dimension)).cpu()  # 随机生成向量
+                fake_img = G(z)  # 将向量放入生成网络G生成一张图片
+                fake_out = D_nodule(fake_img)  # 判别器判断假的图片
+                d_loss_fake = criterion(fake_out, fake_label)  # 假的图片的loss
+                fake_scores = fake_out  # 假的图片放入判别器输出越接近0越好
+
+                # D bp and optimize
+                d_loss = d_loss_real + d_loss_fake
+                d_optimizer.zero_grad()  # 判别器D的梯度归零
+                d_loss.backward()  # 反向传播
+                d_optimizer.step()  # 更新判别器D参数
             # 生成器G的训练compute loss of fake_img
             for j in range(gepoch):
                 z = torch.randn(num_img, 100)  # 随机生成向量
